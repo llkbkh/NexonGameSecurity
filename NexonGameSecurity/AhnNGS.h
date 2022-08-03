@@ -829,9 +829,17 @@ NTSTATUS WINAPI  NGS_QueryVirtualMemorHandle(HANDLE ProcessHandle, PVOID64 BaseA
 	case MemoryMappedFilenameInformation:
 	{
 		PMEMORY_SECTION_NAME_NGS SectionName = (PMEMORY_SECTION_NAME_NGS)MemoryInformation;
+		
 		if (NT_SUCCESS(Status))
 		{
-			ACEErrorFileLogW(L"[{}] SectionName:{}", __FUNCTIONW__, SectionName->Buffer);
+			//检查是否是自身模块句柄
+			if (g_pHook->GetSelfModuleByAddress(BaseAddress) == g_pHook->GetSelfModuleHandle())
+			{
+				
+				Status = STATUS_INVALID_ADDRESS;
+			}
+
+			ACEErrorFileLogW(L"[{}] SectionName:{} Status:0x{:X}", __FUNCTIONW__, SectionName->Buffer, Status);
 		}
 	}
 	break;
@@ -921,6 +929,13 @@ NTSTATUS WINAPI  NGS_NtCreateFileHandle(X64Call_Param* p)
 
 			return Status;
 
+		}
+		//5.1.18 
+		else if(strstr(szFileName, g_pHook->GetModuleNameByAddress((DWORD)NGS_NtCreateFileHandle).data()))
+		{
+			//防止文件被特征.不过如果来到这里 说明已经被检测到了.可能会造成封号 需要找源头
+			ACEDebugFileLog("[{}] AntiDetect File ",__FUNCTION__);
+			return STATUS_FILE_NOT_AVAILABLE;
 		}
 
 	}
